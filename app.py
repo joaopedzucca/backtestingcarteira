@@ -1,17 +1,28 @@
 import streamlit as st
+import pandas as pd
+from src.data_loader import load_price_data
+from src.backtesting import run_backtest
 
-# Título do app
-st.title("Minha Aplicação de Backtesting")
+def main():
+    st.title("Backtesting de Carteiras")
 
-# Mensagem inicial
-st.write("Olá, mundo! Este é um aplicativo de backtesting usando Streamlit.")
+    df_prices = load_price_data("C:/Users/joaop/Downloads/dados_ajustados_price_all.xlsx")
+    all_tickers = df_prices.columns.tolist()
 
-# Entrada de dados
-ticker = st.text_input("Digite o ticker da ação (exemplo: PETR4)")
+    st.sidebar.write("### Parâmetros do Backtest")
+    start_date = st.sidebar.date_input("Data Início", pd.to_datetime("2012-12-31"))
+    end_date = st.sidebar.date_input("Data Fim", pd.to_datetime("2023-01-01"))
 
-data_inicial = st.date_input("Data inicial")
-data_final = st.date_input("Data final")
+    buy_selection = st.sidebar.multiselect("Tickers para Comprar", all_tickers)
+    buy_weights = [st.sidebar.number_input(f"Peso de {ticker}", 0.0, 1.0, 0.1) for ticker in buy_selection]
 
-if st.button("Executar Backtest"):
-    st.write(f"Executando backtest para {ticker} de {data_inicial} até {data_final}")
-    # Aqui você pode incluir sua lógica de backtesting
+    if st.sidebar.button("Rodar Backtest"):
+        st.write("## Resultados do Backtest")
+        result = run_backtest(df_prices, buy_selection, buy_weights, str(start_date), str(end_date))
+
+        st.write("### Métricas")
+        st.write(result['metrics'])
+        st.line_chart(result['portfolio_curve'])
+
+if __name__ == "__main__":
+    main()
