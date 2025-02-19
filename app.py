@@ -6,7 +6,8 @@ from src.backtesting import run_backtest
 def main():
     st.title("Backtesting de Carteiras")
 
-    df_prices = load_price_data("C:/Users/joaop/Downloads/dados_ajustados_price_all.xlsx")
+    df_prices = load_price_data("data/dados_ajustados_price_all.xlsx")
+
     all_tickers = df_prices.columns.tolist()
 
     st.sidebar.write("### Parâmetros do Backtest")
