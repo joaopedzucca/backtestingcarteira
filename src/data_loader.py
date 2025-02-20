@@ -30,12 +30,12 @@ def load_filtered_data(
     """
     Lê o CSV inteiro, mas filtra somente as linhas dos tickers 
     e datas escolhidos, então faz pivot (Date como index, 
-    colunas = Tickers, valores = AdjClose).
+    colunas = Tickers, valores = Adj Close).
 
     Retorna um DataFrame pronto para cálculos (cada coluna = um ticker).
     """
     # Primeiro lemos o CSV com todas as colunas relevantes:
-    #  (Date, Ticker, AdjClose, etc.)
+    #  (Date, Ticker, Adj Close, etc.)
     df_raw = pd.read_excel(csv_path, parse_dates=["Date"])
     
     # Filtro de tickers
@@ -49,8 +49,8 @@ def load_filtered_data(
     if df_raw.empty:
         return pd.DataFrame()
     
-    # Pivotar: linhas = datas, colunas = tickers, valores = AdjClose
-    df_pivot = df_raw.pivot(index="Date", columns="Ticker", values="AdjClose")
+    # Pivotar: linhas = datas, colunas = tickers, valores = Adj Close
+    df_pivot = df_raw.pivot(index="Date", columns="Ticker", values="Adj Close")
     
     # Ordena por data
     df_pivot.sort_index(inplace=True)
