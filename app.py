@@ -7,7 +7,7 @@ from typing import List
 from src.data_loader import get_all_tickers, load_filtered_data
 from src.backtesting import run_backtest
 
-CSV_PATH = "data/dados_ajustados_price_all.xlsx"  # Ajuste para seu caminho
+CSV_PATH = "data/dados_ajustados_price_all.parquet"  # Ajuste para seu caminho
 
 def main():
     st.title("Backtesting - Carregar só o necessário")

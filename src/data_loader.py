@@ -14,7 +14,7 @@ def get_all_tickers(csv_path: str) -> List[str]:
     Retorna a lista de tickers únicos.
     """
     # Use 'usecols' para ler só as colunas necessárias
-    df_tickers = pd.read_excel(csv_path, usecols=["Date", "Ticker"])
+    df_tickers = pd.read_parquet(csv_path, usecols=["Date", "Ticker"])
     tickers_unicos = df_tickers["Ticker"].unique().tolist()
     return sorted(tickers_unicos)
 
@@ -36,7 +36,7 @@ def load_filtered_data(
     """
     # Primeiro lemos o CSV com todas as colunas relevantes:
     #  (Date, Ticker, Adj Close, etc.)
-    df_raw = pd.read_excel(csv_path, parse_dates=["Date"])
+    df_raw = pd.read_parquet(csv_path, parse_dates=["Date"])
     
     # Filtro de tickers
     df_raw = df_raw[df_raw["Ticker"].isin(tickers)]
