@@ -23,10 +23,12 @@ def run_backtest(
     ----------
     df_prices : pd.DataFrame
         colunas = tickers, index = datas, valores = Close
-    buy_tickers, buy_weights : ativos e pesos (ex.: [0.5, 0.5])
-    sell_tickers, sell_weights : short, transformados em pesos negativos
-    start_date, end_date : período de simulação
-    risk_free_annual : taxa livre de risco anual, ex.: 0.13 = 13%
+        (ex.: df["PETR4.SA"], df["VALE3.SA"], etc.)
+    buy_tickers, buy_weights : lista de ativos e pesos (ex.: [0.5, 0.5])
+    sell_tickers, sell_weights : lista de ativos para short e seus pesos
+                                 (transformados internamente em pesos negativos)
+    start_date, end_date : período de simulação (strings 'YYYY-MM-DD')
+    risk_free_annual : taxa livre de risco anual (ex.: 0.13 = 13%)
 
     Retorna
     -------
@@ -40,38 +42,55 @@ def run_backtest(
          'max_drawdown': float
        }
     }
+
+    Observações
+    -----------
+    - Se algum ticker não existir nas colunas de df_prices, ele será ignorado.
+    - Se não sobrar nenhum ticker válido ou o DataFrame ficar vazio no período,
+      o retorno será um dicionário com 'portfolio_curve' vazio e 'metrics' vazio.
     """
     if sell_tickers is None:
         sell_tickers = []
     if sell_weights is None:
         sell_weights = []
 
-    # Todos os tickers relevantes
+    # Combina todos os tickers (compra e venda)
     all_tickers = buy_tickers + sell_tickers
-    # Pesos (positivos de compra, negativos de venda)
+    # Pesos: compra (positivos), venda (negativos)
     all_weights = buy_weights + [-w for w in sell_weights]
 
-    # Filtra período e colunas
-    df_period = df_prices.loc[start_date:end_date, all_tickers].copy()
+    # 1) Garantir que só usamos tickers existentes no df_prices
+    valid_tickers = [t for t in all_tickers if t in df_prices.columns]
+    if not valid_tickers:
+        # Nenhum ticker encontrado na base
+        return {
+            'portfolio_curve': pd.Series([], dtype=float),
+            'metrics': {}
+        }
+
+    # 2) Filtra datas e colunas válidas
+    df_period = df_prices.loc[start_date:end_date, valid_tickers].copy()
+
     # Remove linhas que sejam totalmente NaN
     df_period.dropna(how='all', inplace=True)
 
+    # Se ainda assim estiver vazio (sem linhas ou sem colunas)
     if df_period.empty:
         return {
             'portfolio_curve': pd.Series([], dtype=float),
             'metrics': {}
         }
 
-    # Retornos diários
+    # 3) Calcula retornos diários
     daily_returns = df_period.pct_change().fillna(0)
 
-    # Soma ponderada dos retornos
+    # 4) Retorno do portfólio = soma ponderada dos retornos
     portfolio_returns = (daily_returns * all_weights).sum(axis=1)
 
-    # Curva do portfólio (iniciando em 1.0)
+    # 5) Curva do portfólio (iniciando em 1.0)
     portfolio_curve = (1 + portfolio_returns).cumprod()
 
-    # Métricas
+    # 6) Métricas
     final_return = portfolio_curve.iloc[-1] - 1
     cagr_val = cagr(portfolio_curve)
     vol_val = volatility(portfolio_returns)
