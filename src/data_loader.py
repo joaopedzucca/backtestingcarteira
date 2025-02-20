@@ -36,7 +36,7 @@ def load_filtered_data(
     """
     # Primeiro lemos o CSV com todas as colunas relevantes:
     #  (Date, Ticker, AdjClose, etc.)
-    df_raw = pd.read_csv(csv_path, parse_dates=["Date"])
+    df_raw = pd.read_excel(csv_path, parse_dates=["Date"])
     
     # Filtro de tickers
     df_raw = df_raw[df_raw["Ticker"].isin(tickers)]
