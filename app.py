@@ -1,29 +1,79 @@
+# app.py
+
 import streamlit as st
 import pandas as pd
-from src.data_loader import load_price_data
-from src.backtesting import run_backtest
+from typing import List
+
+from data_loader import get_all_tickers, load_filtered_data
+from backtesting import run_backtest
+
+CSV_PATH = "data/dados_ajustados_price_all.xlsx"  # Ajuste para seu caminho
 
 def main():
-    st.title("Backtesting de Carteiras")
+    st.title("Backtesting - Carregar só o necessário")
 
-    df_prices = load_price_data("data/dados_ajustados_price_CB.xlsx")
+    # 1) Descobrir todos os tickers
+    st.write("Carregando lista de tickers disponíveis...")
+    tickers_all = get_all_tickers(CSV_PATH)
+    st.write(f"Total de tickers disponíveis: {len(tickers_all)}")
 
-    all_tickers = df_prices.columns.tolist()
+    # 2) Seletor de tickers (compra e venda)
+    buy_selection = st.multiselect("Tickers para COMPRAR", tickers_all)
+    sell_selection = st.multiselect("Tickers para VENDER/SHORT", tickers_all)
 
-    st.sidebar.write("### Parâmetros do Backtest")
-    start_date = st.sidebar.date_input("Data Início", pd.to_datetime("2012-12-31"))
-    end_date = st.sidebar.date_input("Data Fim", pd.to_datetime("2023-01-01"))
+    # 3) Pesos para cada lista
+    buy_weights = []
+    for tk in buy_selection:
+        w = st.number_input(f"Peso de {tk} (compra)", 0.0, 1.0, 0.1, 0.01)
+        buy_weights.append(w)
+    
+    sell_weights = []
+    for tk in sell_selection:
+        w = st.number_input(f"Peso de {tk} (venda)", 0.0, 1.0, 0.1, 0.01)
+        sell_weights.append(w)
 
-    buy_selection = st.sidebar.multiselect("Tickers para Comprar", all_tickers)
-    buy_weights = [st.sidebar.number_input(f"Peso de {ticker}", 0.0, 1.0, 0.1) for ticker in buy_selection]
+    # 4) Datas
+    start_date = st.date_input("Data Início", pd.to_datetime("2012-01-01"))
+    end_date = st.date_input("Data Fim", pd.to_datetime("2023-01-01"))
 
-    if st.sidebar.button("Rodar Backtest"):
-        st.write("## Resultados do Backtest")
-        result = run_backtest(df_prices, buy_selection, buy_weights, str(start_date), str(end_date))
+    # 5) Rodar backtest só quando clicar no botão
+    if st.button("Rodar Backtest"):
+        # Junta todos os tickers que vamos precisar
+        tickers_needed = list(set(buy_selection + sell_selection))
+        
+        if not tickers_needed:
+            st.warning("Nenhum ticker selecionado!")
+            return
+        
+        # 5.1) Carrega SOMENTE esses tickers e essas datas
+        df_filtered = load_filtered_data(
+            CSV_PATH,
+            tickers=tickers_needed,
+            start_date=str(start_date),
+            end_date=str(end_date)
+        )
+        
+        if df_filtered.empty:
+            st.warning("Não há dados para esse filtro!")
+            return
+        
+        # 5.2) Executa o backtest
+        portfolio_curve = run_backtest(
+            df_prices=df_filtered,
+            buy_tickers=buy_selection,
+            buy_weights=buy_weights,
+            sell_tickers=sell_selection,
+            sell_weights=sell_weights
+        )
+        
+        # 5.3) Plotar resultados
+        st.write("### Curva do Portfólio")
+        st.line_chart(portfolio_curve)
 
-        st.write("### Métricas")
-        st.write(result['metrics'])
-        st.line_chart(result['portfolio_curve'])
+        # Exemplo: valor final
+        final_val = portfolio_curve.iloc[-1]
+        st.write(f"Retorno final: {final_val - 1:.2%}")
+
 
 if __name__ == "__main__":
     main()
