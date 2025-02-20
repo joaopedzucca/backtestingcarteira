@@ -1,8 +1,8 @@
+# src/backtesting.py
 import pandas as pd
-import numpy as np
 from typing import List, Dict
+import numpy as np
 
-# Importe suas funções de métricas personalizadas
 from src.metrics import cagr, volatility, sharpe_ratio, max_drawdown
 
 def run_backtest(
@@ -16,81 +16,62 @@ def run_backtest(
     risk_free_annual: float = 0.13
 ) -> Dict:
     """
-    Executa um backtest simples (buy & hold) em um DataFrame pivotado, 
-    onde cada coluna corresponde a um ticker, e o índice são as datas.
+    Executa um backtest simples (buy & hold) em um DataFrame pivotado 
+    contendo preços de 'Close'.
 
     Parâmetros
     ----------
     df_prices : pd.DataFrame
-        DataFrame com as cotações (ex.: 'Adj Close'), pivotado:
-        - index: datas (datetime)
-        - columns: tickers (str)
-    buy_tickers : List[str]
-        Lista de tickers que serão comprados.
-    buy_weights : List[float]
-        Lista de pesos para cada ticker da buy_tickers (ex.: [0.10, 0.20]).
-        A soma dos pesos de compra pode ou não ser 1, dependendo da estratégia.
-    sell_tickers : List[str], opcional
-        Lista de tickers que serão vendidos (short). Se não houver, pode ser None.
-    sell_weights : List[float], opcional
-        Pesos para short, correspondentes aos tickers de sell_tickers (ex.: [0.10, 0.10]).
-        Se não houver, pode ser None.
-    start_date : str
-        Data de início do período (formato 'YYYY-MM-DD').
-    end_date : str
-        Data de término do período.
-    risk_free_annual : float
-        Taxa livre de risco anual para cálculo do Sharpe. Ex.: 0.13 (13% a.a.).
+        colunas = tickers, index = datas, valores = Close
+    buy_tickers, buy_weights : ativos e pesos (ex.: [0.5, 0.5])
+    sell_tickers, sell_weights : short, transformados em pesos negativos
+    start_date, end_date : período de simulação
+    risk_free_annual : taxa livre de risco anual, ex.: 0.13 = 13%
 
-    Retorno
+    Retorna
     -------
-    Dict
-        Um dicionário com as chaves:
-        - 'portfolio_curve': pd.Series com a evolução do valor do portfólio (inicia em 1.0).
-        - 'metrics': dict com as métricas (cagr, volatility, sharpe, max_drawdown, final_return).
-
-    Exemplo de uso
-    --------------
-    >>> result = run_backtest(
-    ...     df_prices=df, 
-    ...     buy_tickers=["PETR4.SA", "VALE3.SA"],
-    ...     buy_weights=[0.5, 0.5],
-    ...     sell_tickers=["OIBR3.SA"],
-    ...     sell_weights=[0.2],
-    ...     start_date="2012-01-01",
-    ...     end_date="2023-01-01",
-    ...     risk_free_annual=0.13
-    ... )
-    >>> portfolio = result['portfolio_curve']
-    >>> metrics = result['metrics']
-    >>> print(metrics)
+    dict {
+       'portfolio_curve': pd.Series,
+       'metrics': {
+         'final_return': float,
+         'cagr': float,
+         'volatility': float,
+         'sharpe': float,
+         'max_drawdown': float
+       }
+    }
     """
     if sell_tickers is None:
         sell_tickers = []
     if sell_weights is None:
         sell_weights = []
 
-    # Lista total de tickers
+    # Todos os tickers relevantes
     all_tickers = buy_tickers + sell_tickers
-    # Pesos: compras são positivos, shorts são negativos
+    # Pesos (positivos de compra, negativos de venda)
     all_weights = buy_weights + [-w for w in sell_weights]
 
-    # Filtra o DataFrame no período e nos tickers relevantes
+    # Filtra período e colunas
     df_period = df_prices.loc[start_date:end_date, all_tickers].copy()
     # Remove linhas que sejam totalmente NaN
     df_period.dropna(how='all', inplace=True)
 
-    # Calcula retornos diários
+    if df_period.empty:
+        return {
+            'portfolio_curve': pd.Series([], dtype=float),
+            'metrics': {}
+        }
+
+    # Retornos diários
     daily_returns = df_period.pct_change().fillna(0)
 
-    # Retorno do portfólio = soma ponderada dos retornos
-    # Obs.: isto assume buy & hold com pesos fixos (proporcional ao capital inicial).
+    # Soma ponderada dos retornos
     portfolio_returns = (daily_returns * all_weights).sum(axis=1)
 
-    # Evolução do portfólio, iniciando em 1.0
+    # Curva do portfólio (iniciando em 1.0)
     portfolio_curve = (1 + portfolio_returns).cumprod()
 
-    # Cálculo das métricas
+    # Métricas
     final_return = portfolio_curve.iloc[-1] - 1
     cagr_val = cagr(portfolio_curve)
     vol_val = volatility(portfolio_returns)
