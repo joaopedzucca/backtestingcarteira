@@ -51,10 +51,10 @@ def load_filtered_data(
 def load_cdi(parquet_path: str, start_date: str, end_date: str) -> pd.Series:
     """
     Lê cdi.parquet (colunas: Date, valor), filtra pelo período e retorna
-    a Série 'CDI_acumulado' indexada por Date.
+    a Série acumulada do CDI já corrigida.
 
-    - 'valor' deve ser a taxa diária, ex.: 0.0003 (0,03%/dia).
-    - O resultado CDI_acumulado inicia no primeiro dia do período (>0).
+    - A coluna 'valor' já deve conter o CDI acumulado, começando de 1.0
+    - A saída será rebaseada para começar em 1.0 no período selecionado
     """
     df_cdi = pd.read_parquet(parquet_path)
     df_cdi['Date'] = pd.to_datetime(df_cdi['Date'], errors='coerce')
@@ -70,11 +70,11 @@ def load_cdi(parquet_path: str, start_date: str, end_date: str) -> pd.Series:
     df_cdi.sort_values('Date', inplace=True)
     df_cdi.set_index('Date', inplace=True)
 
-    # Cria fator diário e acumula
-    df_cdi['fator'] = 1 + df_cdi['valor']
-    df_cdi['CDI_acumulado'] = df_cdi['fator'].cumprod()
+    # Rebase para começar do mesmo valor que a curva da carteira
+    df_cdi['CDI_rebase'] = df_cdi['valor'] / df_cdi['valor'].iloc[0]
 
-    return df_cdi['CDI_acumulado']
+    return df_cdi['CDI_rebase']
+
 
 def load_ibov(parquet_path: str, start_date: str, end_date: str) -> pd.Series:
     """
